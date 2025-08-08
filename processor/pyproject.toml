@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "video_processor"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = [
+  "paddleocr>=3.1.0",
+  "paddlepaddle-gpu>=2.6",
+  "opencv-python",
+  "pyyaml",
+  "pydantic>=2",
+  "rapidfuzz",
+  "symspellpy",
+  "scikit-learn",
+  "spacy",
+]
+
+[tool.setuptools.packages.find]
+include = ["video_processor*"]    # sadece kod paketi
+exclude = ["models*", "video*"]   # veri klasörleri
