@@ -10,6 +10,9 @@ from typing import Iterator, Tuple, List
 import cv2
 
 from .base import BaseOCR
+# a) en üst kısma ekle
+# from .beton import BetonPreprocessor, OtsuConfig
+
 
 
 class PaddleOCRWrapper(BaseOCR):
@@ -28,6 +31,8 @@ class PaddleOCRWrapper(BaseOCR):
         Args:
             gpu (bool): GPU kullanımı (varsayılan: True)
         """
+        
+
         self.gpu = gpu
         self.ocr = None
         self._has_logged_resize = False
@@ -36,17 +41,12 @@ class PaddleOCRWrapper(BaseOCR):
         self._init_ocr()
     
     def _init_ocr(self):
-        """PaddleOCR 3.1.0 motorunu başlatır"""
+        """PaddleOCR 3.1.0 motorunu başlatır (eski stabil akış)."""
         try:
             from paddleocr import PaddleOCR
-            
-            # PaddleOCR 3.1.0 için en minimal config
-            print(f"🔧 PaddleOCR 3.1.0 başlatılıyor...")
-            
-            # OCR'ı başlat - hiç parametre yok
-            self.ocr = PaddleOCR()
-            print(f"🤖 PaddleOCR 3.1.0 başlatıldı (varsayılan ayarlar)")
-            
+            print("🔧 PaddleOCR 3.1.0 başlatılıyor...")
+            self.ocr = PaddleOCR(lang="tr", use_angle_cls=True)
+            print("🤖 PaddleOCR 3.1.0 başlatıldı (varsayılan ayarlar)")
         except ImportError:
             raise ImportError(
                 "PaddleOCR 3.1.0 bulunamadı. Kurulum için:\n"
@@ -54,25 +54,22 @@ class PaddleOCRWrapper(BaseOCR):
             )
         except Exception as e:
             print(f"⚠️  PaddleOCR başlatma hatası: {e}")
-            raise RuntimeError(f"PaddleOCR başlatılamadı: {e}")
-    
-        # ------------------------------------------------------------------
-    # Tek kareden metin çıkar – PaddleOCR ≥ 3.1
-    # ------------------------------------------------------------------
+            self.ocr = None
+            return
+
     def recognize(
         self,
-        frame: np.ndarray,                           # <-- Pylance “frame” burada
+        frame: np.ndarray,
     ) -> Iterator[Tuple[Tuple[float, float, float, float], str, float]]:
-        """
-        Dönenler: (x1, y1, x2, y2), metin, güven
-        """
         if self.ocr is None:
             self._init_ocr()
+            if self.ocr is None:
+                return
 
         # 1) Ön-işleme
         proc = self.preprocess_frame(frame)
 
-        # 2) OCR çağrısı
+    # 2) OCR çağrısı (ESKİ: predict)
         try:
             pages = self.ocr.predict(input=proc)
         except Exception as e:
@@ -82,23 +79,22 @@ class PaddleOCRWrapper(BaseOCR):
         if not pages:
             return
 
-        # 3) Sonuçları çözüp yield et
+    # 3) Sonuçları çözüp yield et
         for page in pages:
             res = page.get("res", page)
-            polys   = res.get("dt_polys", [])
-            texts   = res.get("rec_texts", [])
-            scores  = res.get("rec_scores", [])
+            polys  = res.get("dt_polys", [])
+            texts  = res.get("rec_texts", [])
+            scores = res.get("rec_scores", [])
 
             for poly, txt, score in zip(polys, texts, scores):
                 if not txt or score < 0.30:
                     continue
-
                 xs = [p[0] for p in poly]
                 ys = [p[1] for p in poly]
                 bbox = (float(min(xs)), float(min(ys)),
-                        float(max(xs)), float(max(ys)))
-
+                    float(max(xs)), float(max(ys)))
                 yield bbox, txt.strip(), float(score)
+
 
     
     def preprocess_frame(self, frame: np.ndarray) -> np.ndarray:

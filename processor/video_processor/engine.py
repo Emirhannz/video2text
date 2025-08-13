@@ -48,11 +48,18 @@ def run_pipeline(video_path, out_path, *, step=15, gpu=True):
 
         # Canlı çıktı → her karede bir satırda yaz
         texts = [txt.strip() for _, txt, _ in results if txt.strip()]
+        
+        def _fmt_mmss(s):
+            total_ms = int(round(s * 1000))
+            mm, ss = divmod(total_ms // 1000, 60)
+            return f"[{mm:02d}:{ss:02d}]"
+
         if texts:
             joined = " | ".join(texts)
-            print(f"  📊 İşlenen kare: {frame_count} - {joined}")
+            print(f"  {_fmt_mmss(ts)} - {joined}")
         else:
-            print(f"  📊 İşlenen kare: {frame_count} - (metin yok)")
+            print(f"  {_fmt_mmss(ts)} - (metin yok)")
+        
 
         
         # İlerleme göstergesi
@@ -64,7 +71,8 @@ def run_pipeline(video_path, out_path, *, step=15, gpu=True):
     import os
     basename = os.path.splitext(os.path.basename(video_path))[0]
     text_output = f"{basename}.txt"
-    writer.export_text_only(text_file_path=text_output)
+    writer.export_grouped_text(text_file_path=text_output, sep=" | ", show_ms=False)
+
     
     print(f"✅ İşlem tamamlandı!")
     print(f"   📈 Toplam kare: {frame_count}")

@@ -10,6 +10,7 @@ import os
 from typing import List, Dict, Any, Tuple
 from datetime import datetime
 
+OUTPUT_DIR = r"C:\Users\ASUS\Desktop\videotext\processor\output"
 
 class JsonWriter:
     """
@@ -215,6 +216,54 @@ class JsonWriter:
             print(f"📊 Toplam tespit: {stats['total_detections']}")
             print(f"⏱️  Zaman aralığı: {stats['time_range']['duration']:.2f}s")
             print(f"🎯 Ortalama güven: {stats['confidence_stats']['avg']:.3f}")
+
+    def _format_mmss(self, seconds: float, show_ms: bool = False) -> str:
+        """Saniyeyi [MM:SS] formatına çevirir."""
+        if seconds is None:
+            return "[00:00]"
+        total_ms = int(round(seconds * 1000))
+        mm, ss = divmod(total_ms // 1000, 60)
+        if show_ms:
+            ms = total_ms % 1000
+            return f"[{mm:02d}:{ss:02d}.{ms:03d}]"
+        return f"[{mm:02d}:{ss:02d}]"
+
+    OUTPUT_DIR = r"C:\Users\ASUS\Desktop\videotext\processor\output"
+
+    def export_grouped_text(self, text_file_path: str = None, sep: str = " | ", show_ms: bool = False):
+        """
+        Aynı zamana ait tespitleri tek satırda birleştirir:
+        [MM:SS] - TXT1 | TXT2 | ...
+        """
+        # Yol belirtilmediyse veya sadece dosya adı geldiyse output klasörüne ata
+        if not text_file_path:
+            text_file_path = self.output_path.replace('.json', '_frames.txt')
+        elif not os.path.isabs(text_file_path):
+            text_file_path = os.path.join(OUTPUT_DIR, text_file_path)
+
+        os.makedirs(os.path.dirname(text_file_path), exist_ok=True)
+
+        from collections import OrderedDict
+        buckets: "OrderedDict[float, list[str]]" = OrderedDict()
+
+        for d in sorted(self.data, key=lambda x: x["timestamp"]):
+            ts = d["timestamp"]
+            txt = d["text"].strip()
+            if not txt:
+                continue
+            if ts not in buckets:
+                buckets[ts] = []
+            buckets[ts].append(txt)
+
+        with open(text_file_path, "w", encoding="utf-8") as f:
+            for ts, texts in buckets.items():
+                stamp = self._format_mmss(ts, show_ms=show_ms)
+                line = f"{stamp} - {sep.join(texts)}"
+                f.write(line + "\n")
+
+        print(f"📄 Kare bazlı metin dosyası: {text_file_path}")
+
+        
     
     def export_text_only(self, text_file_path: str = None):
         """
@@ -236,11 +285,5 @@ class JsonWriter:
         
         print(f"📄 Metin dosyası: {text_file_path}")
 
-    def export_text_only(self, text_file_path):
-        with open(text_file_path, "w", encoding="utf-8") as f:
-            for item in self.data:
-                ts = item.get("time", "??:??")
-                text = item.get("text", "").strip()
-                conf = item.get("conf", 0.0)
-                f.write(f"[{ts}] {text} ({conf:.2f})\n")
+
     
