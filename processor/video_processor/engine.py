@@ -7,6 +7,8 @@ Video karelerini okur → OCR uygular → sonuçları kaydeder
 from .io.extractor import FrameExtractor
 from .ocr.paddle import PaddleOCRWrapper
 from .io.writer import JsonWriter
+from .io.simple_db import SimpleRowWriter  # ← DB yazıcı eklendi
+import os
 
 
 def run_pipeline(video_path, out_path, *, step=15, gpu=True):
@@ -30,6 +32,10 @@ def run_pipeline(video_path, out_path, *, step=15, gpu=True):
     
     print(f"📝 Çıktı dosyası: {out_path}")
     writer = JsonWriter(out_path)
+
+    # --- DB yazıcı ---
+    db = SimpleRowWriter()
+    file_name = os.path.basename(video_path)
     
     frame_count = 0
     text_count = 0
@@ -40,10 +46,10 @@ def run_pipeline(video_path, out_path, *, step=15, gpu=True):
         frame_count += 1
         
         # Her karedeki metinleri tanı
-                # Her karedeki metinleri tanı
         results = list(ocr.recognize(frame))
         for bbox, txt, conf in results:
-            writer.add(ts, bbox, txt, conf)
+            writer.add(ts, bbox, txt, conf)  # JSON’a ekle
+            db.insert_detection(file_name, txt, ts, conf)  # DB’ye ekle
             text_count += 1
 
         # Canlı çıktı → her karede bir satırda yaz
@@ -60,25 +66,19 @@ def run_pipeline(video_path, out_path, *, step=15, gpu=True):
         else:
             print(f"  {_fmt_mmss(ts)} - (metin yok)")
         
-
-        
         # İlerleme göstergesi
         if frame_count % 10 == 0:
             print(f"  📊 İşlenen kare: {frame_count}, Bulunan metin: {text_count}")
     
-    # Sonuçları kaydet
-        # JSON yazma yerine: metin dosyası olarak kaydet (.txt)
-    import os
+    # Sonuçları kaydet (.txt)
     basename = os.path.splitext(os.path.basename(video_path))[0]
     text_output = f"{basename}.txt"
     writer.export_grouped_text(text_file_path=text_output, sep=" | ", show_ms=False)
 
-    
     print(f"✅ İşlem tamamlandı!")
     print(f"   📈 Toplam kare: {frame_count}")
     print(f"   📝 Toplam metin: {text_count}")
     print(f"   💾 Sonuç dosyası: {text_output}")
-
 
 
 def run_pipeline_advanced(video_path, out_path, *, step=15, gpu=True, 
@@ -94,6 +94,4 @@ def run_pipeline_advanced(video_path, out_path, *, step=15, gpu=True,
         min_confidence (float): Minimum güven skoru
         filter_duplicates (bool): Tekrar eden metinleri filtrele
     """
-    # Şimdilik basit pipeline'ı çağır
-    # İleride buraya filtreleme, önişleme vs. eklenebilir
     run_pipeline(video_path, out_path, step=step, gpu=gpu)

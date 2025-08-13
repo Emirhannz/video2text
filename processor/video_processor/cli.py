@@ -30,7 +30,7 @@ Kullanım örnekleri:
     # Ana argümanlar
     parser.add_argument(
         "-i", "--video",
-        default="video/final_manzaraa.mp4",
+        default="video/sarki.mp4",
         help="İşlenecek video dosyası (varsayılan: video/2kvideo.mp4)")
     
     parser.add_argument(
